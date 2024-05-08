@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend-container
+          image: ghcr.io/martintl25/cloud_native_hw3_frontend
+          ports:
+            - containerPort: 5173
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
+            limits:
+              cpu: 200m
+              memory: 200Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5173
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          env:
+            - name: VITE_HOST
+              value: "0.0.0.0"
+            - name: BACKEND_IP
+              value: backend-clusterip
+            - name: VITE_BACKEND_URL
+              value: "http://$(BACKEND_IP):8888"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend-container
+          image: ghcr.io/martintl25/cloud_native_hw3_backend
+          ports:
+            - containerPort: 8888
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
+            limits:
+              cpu: 200m
+              memory: 200Mi
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 8888
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          env:
+            - name: PORT
+              value: "8888"
+            - name: HOST
+              value: "0.0.0.0"
+            - name: DB_IP
+              value: db-clusterip
+            - name: MONGO_CONNECTION_STRING
+              value: "mongodb://$(DB_IP):27017/myMernApp"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb-container
+          image: docker.io/library/mongo:latest
+          ports:
+            - containerPort: 27017
+          livenessProbe:
+            exec:
+              command:
+              - mongosh
+              - --eval
+              - "db.adminCommand('ping');"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: mongodb-persistent-storage
+              mountPath: /var/lib/mongodb_backup
+      volumes:
+        - name: mongodb-persistent-storage
+          persistentVolumeClaim:
+            claimName: mongodb-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
