@@ -1,0 +1,43 @@
+services:
+  frontend:
+    image: homework/frontend
+    container_name: frontend
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    environment:
+      - VITE_HOST=0.0.0.0
+      - VITE_BACKEND_URL=http://172.21.0.102:8888
+    networks:
+      hw_br:
+        ipv4_address: 172.21.0.101
+
+  backend:
+    image: homework/backend
+    container_name: backend
+    build: ./backend
+    depends_on:
+      - database
+    environment:
+      - PORT=8888
+      - HOST=0.0.0.0
+      - MONGO_CONNECTION_STRING=mongodb://172.21.0.103:27017/myMernApp
+    networks:
+      hw_br:
+        ipv4_address: 172.21.0.102
+  
+  database:
+    image: mongo
+    container_name: database
+    networks:
+      hw_br:
+        ipv4_address: 172.21.0.103
+
+networks:
+  hw_br:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
